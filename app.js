@@ -3,52 +3,6 @@ let currentDifficulty = 1;
 let currentAnswer = null;
 let score = 0;
 
-// --- Code Protection Mechanisms ---
-// Prevent common dev tools shortcuts
-document.addEventListener('keydown', function(e) {
-    // Disable F12
-    if(e.keyCode == 123) {
-        e.preventDefault();
-        return false;
-    }
-    // Disable Ctrl+Shift+I / Cmd+Option+I
-    if(e.ctrlKey && e.shiftKey && e.keyCode == 73) {
-        e.preventDefault();
-        return false;
-    }
-    // Disable Ctrl+Shift+J / Cmd+Option+J
-    if(e.ctrlKey && e.shiftKey && e.keyCode == 74) {
-        e.preventDefault();
-        return false;
-    }
-    // Disable Ctrl+Shift+C / Cmd+Option+C
-    if(e.ctrlKey && e.shiftKey && e.keyCode == 67) {
-        e.preventDefault();
-        return false;
-    }
-    // Disable Ctrl+U / Cmd+U (View Source)
-    if(e.ctrlKey && e.keyCode == 85) {
-        e.preventDefault();
-        return false;
-    }
-    // Disable Ctrl+S / Cmd+S (Save Page)
-    if(e.ctrlKey && e.keyCode == 83) {
-        e.preventDefault();
-        return false;
-    }
-});
-
-// Periodic debugger detection
-setInterval(function() {
-    let before = new Date().getTime();
-    debugger;
-    let after = new Date().getTime();
-    if (after - before > 100) {
-        // Dev tools is likely open, we could redirect or clear content
-        // document.body.innerHTML = 'Developer tools detected. Access denied.';
-    }
-}, 2000);
-
 // Handle UI Tab Switching
 function switchTab(tab) {
     currentTab = tab;
@@ -274,7 +228,7 @@ const vocabDictionary = {
         { zh: "半径", en: "Radius" },
         { zh: "直径", en: "Diameter" }
     ],
-    2: [ // Level 2: Grade 6 Specific Core (Proportions, Equations, Surface Area) - Expanded for reshuffling
+    2: [ // Level 2: Grade 6 Specific Core (Proportions, Equations, Surface Area)
         { zh: "比例", en: "Proportion" },
         { zh: "比", en: "Ratio" },
         { zh: "方程", en: "Equation" },
@@ -288,39 +242,26 @@ const vocabDictionary = {
         { zh: "百分数", en: "Percentage" },
         { zh: "周长", en: "Perimeter" },
         { zh: "未知数", en: "Unknown" },
-        { zh: "等式", en: "Equality" },
-        { zh: "倒数", en: "Reciprocal" },
-        { zh: "公约数", en: "Common Divisor" },
-        { zh: "公倍数", en: "Common Multiple" },
-        { zh: "质数", en: "Prime Number" },
-        { zh: "合数", en: "Composite Number" },
-        { zh: "乘积", en: "Product" },
-        { zh: "商", en: "Quotient" },
-        { zh: "因数", en: "Factor" },
-        { zh: "正方体", en: "Cube" },
-        { zh: "长方体", en: "Cuboid" }
+        { zh: "等式", en: "Equality" }
     ],
-    3: [ // Level 3: Advanced & Applied (Scale, Inverse proportion) - Spelling Mode
-        { zh: "比例尺", en: "Scale" },
-        { zh: "正比例", en: "Direct Proportion" },
-        { zh: "反比例", en: "Inverse Proportion" },
-        { zh: "实际距离", en: "Actual Distance" },
-        { zh: "图上距离", en: "Map Distance" },
-        { zh: "常量", en: "Constant" },
-        { zh: "变量", en: "Variable" },
-        { zh: "圆周率", en: "Pi" },
-        { zh: "轴对称", en: "Axis Symmetry" },
-        { zh: "坐标系", en: "Coordinate System" },
-        { zh: "横轴", en: "X-axis" },
-        { zh: "纵轴", en: "Y-axis" },
-        { zh: "统计图", en: "Statistical Chart" },
-        { zh: "扇形", en: "Sector" },
-        { zh: "平均数", en: "Average" },
-        { zh: "中位数", en: "Median" },
-        { zh: "众数", en: "Mode" },
-        { zh: "概率", en: "Probability" },
-        { zh: "几何", en: "Geometry" },
-        { zh: "代数", en: "Algebra" }
+    3: [ // Level 3: Grade 6 appropriate spelling (High frequency, easier to spell)
+        { zh: "圆", en: "Circle" },
+        { zh: "面积", en: "Area" },
+        { zh: "体积", en: "Volume" },
+        { zh: "比", en: "Ratio" },
+        { zh: "比例", en: "Proportion" },
+        { zh: "总数", en: "Total" },
+        { zh: "数字", en: "Number" },
+        { zh: "长度", en: "Length" },
+        { zh: "高度", en: "Height" },
+        { zh: "宽度", en: "Width" },
+        { zh: "一半", en: "Half" },
+        { zh: "数据", en: "Data" },
+        { zh: "图表", en: "Chart" },
+        { zh: "速度", en: "Speed" },
+        { zh: "时间", en: "Time" },
+        { zh: "等于", en: "Equal" },
+        { zh: "距离", en: "Distance" }
     ]
 };
 
@@ -334,13 +275,10 @@ let gameTimer = null;
 let gameSeconds = 0;
 let PAIRS_PER_GAME = 8; // Number of pairs to show
 
-// Tracking for Level 2 Reshuffle
-let availableL2Dict = [];
-let activeL2Pairs = [];
-
-// Tracking for Level 3 Spelling
-let spellingQueue = [];
-let currentSpellingWord = null;
+// Spelling game state
+let spellingWords = [];
+let currentSpellIndex = 0;
+let spellScore = 0;
 
 function setVocabDifficulty(level) {
     currentVocabLevel = level;
@@ -362,10 +300,8 @@ function setVocabDifficulty(level) {
         }
     }
     
-    // Level 1: 6 pairs (12 cards), Level 2: 12 pairs (24 cards), Level 3: 10 spelling words
-    if (level === 1) PAIRS_PER_GAME = 6;
-    else if (level === 2) PAIRS_PER_GAME = 12;
-    else PAIRS_PER_GAME = 10;
+    // Level 1: 6 pairs, Level 2: 10 pairs (dynamic), Level 3: 10 words (spelling)
+    PAIRS_PER_GAME = level === 1 ? 6 : 10;
     
     initVocabGame();
 }
@@ -379,13 +315,16 @@ function shuffleArray(array) {
 
 function initVocabGame() {
     const board = document.getElementById('vocab-board');
-    const spellBoard = document.getElementById('spelling-board');
+    const spellingBoard = document.getElementById('spelling-board');
     const overlay = document.getElementById('game-overlay');
+    const progressContainer = document.getElementById('progress-container');
+    const toast = document.getElementById('vocab-toast');
     
     overlay.classList.add('hidden');
     overlay.classList.remove('flex');
+    toast.classList.add('hidden');
     
-    // Timer
+    // Timer setup
     clearInterval(gameTimer);
     gameSeconds = 0;
     document.getElementById('game-timer').innerText = `0s`;
@@ -394,32 +333,39 @@ function initVocabGame() {
         document.getElementById('game-timer').innerText = `${gameSeconds}s`;
     }, 1000);
 
-    // Initialize Level 3
     if (currentVocabLevel === 3) {
-        // Init Spelling Mode
+        // --- LEVEL 3: Spelling Mode ---
         board.classList.add('hidden');
-        spellBoard.classList.remove('hidden');
-        spellBoard.classList.add('flex');
+        spellingBoard.classList.remove('hidden');
+        spellingBoard.classList.add('flex');
+        progressContainer.classList.add('hidden'); // Hide matching progress
         
+        // Pick random words for spelling
         let shuffledDict = [...vocabDictionary[3]];
         shuffleArray(shuffledDict);
-        spellingQueue = shuffledDict.slice(0, PAIRS_PER_GAME);
-        matchedPairs = 0;
-        document.getElementById('game-progress').innerText = `0 / ${PAIRS_PER_GAME}`;
+        spellingWords = shuffledDict.slice(0, PAIRS_PER_GAME);
         
-        nextSpellingWord();
+        currentSpellIndex = 0;
+        spellScore = 0;
+        document.getElementById('spell-score').innerText = '0';
+        document.getElementById('spell-feedback').classList.add('hidden');
+        
+        loadNextSpellingWord();
+        
     } else {
-        // Init Matching Mode
-        spellBoard.classList.add('hidden');
-        spellBoard.classList.remove('flex');
+        // --- LEVEL 1 & 2: Matching Mode ---
         board.classList.remove('hidden');
+        spellingBoard.classList.add('hidden');
+        spellingBoard.classList.remove('flex');
+        progressContainer.classList.remove('hidden');
         board.innerHTML = '';
         
         // Adjust grid based on pairs
         if (PAIRS_PER_GAME === 6) {
             board.className = "grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-xl min-h-[400px] max-w-3xl mx-auto";
         } else {
-            board.className = "grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 p-4 bg-slate-50 rounded-xl min-h-[400px]";
+            // 10 pairs (20 cards)
+            board.className = "grid grid-cols-4 md:grid-cols-5 gap-3 p-4 bg-slate-50 rounded-xl min-h-[400px]";
         }
 
         // Reset state
@@ -429,71 +375,39 @@ function initVocabGame() {
         lockBoard = false;
         document.getElementById('game-progress').innerText = `0 / ${PAIRS_PER_GAME}`;
         
-        // Pick random words from current level
+        // Pick random words
         let shuffledDict = [...vocabDictionary[currentVocabLevel]];
         shuffleArray(shuffledDict);
+        let selectedWords = shuffledDict.slice(0, PAIRS_PER_GAME);
         
-        if (currentVocabLevel === 2) {
-            availableL2Dict = shuffledDict.slice(PAIRS_PER_GAME); // Reserve unused words
-            activeL2Pairs = shuffledDict.slice(0, PAIRS_PER_GAME);
-        } else {
-            activeL2Pairs = shuffledDict.slice(0, PAIRS_PER_GAME);
-        }
-        
-        renderMatchingBoard();
+        renderCards(selectedWords);
     }
 }
 
-function renderMatchingBoard() {
+function renderCards(wordsList) {
     const board = document.getElementById('vocab-board');
     board.innerHTML = '';
     vocabCards = [];
     
-    // Add active unmatched pairs
-    activeL2Pairs.forEach((word, index) => {
-        if (!word.matched) {
-            vocabCards.push({ id: index, text: word.zh, type: 'zh', matchId: index, wordRef: word });
-            vocabCards.push({ id: index + PAIRS_PER_GAME, text: word.en, type: 'en', matchId: index, wordRef: word });
-        }
+    wordsList.forEach((word, index) => {
+        vocabCards.push({ id: word.en + '_zh', text: word.zh, type: 'zh', matchId: word.en });
+        vocabCards.push({ id: word.en + '_en', text: word.en, type: 'en', matchId: word.en });
     });
     
     shuffleArray(vocabCards);
     
-    // Calculate total matched cards to render them as locked place holders
-    const totalMatchedCards = (PAIRS_PER_GAME * 2) - vocabCards.length;
-    let renderedMatched = 0;
-    
-    // Create an array to hold all slots
-    const allSlots = new Array(PAIRS_PER_GAME * 2).fill(null);
-    
-    // Fill matched slots first (just empty space to keep grid consistent)
-    for(let i=0; i<totalMatchedCards; i++) {
-        const emptyEl = document.createElement('div');
-        emptyEl.className = 'vocab-card bg-green-50 h-20 md:h-24 rounded-xl border-2 border-green-100 flex items-center justify-center opacity-50 select-none';
-        emptyEl.innerHTML = '✔️';
-        allSlots[i] = emptyEl;
-    }
-    
-    // Fill the rest with active cards
-    vocabCards.forEach((card, i) => {
+    vocabCards.forEach(card => {
         const cardEl = document.createElement('div');
-        const textClass = currentVocabLevel === 2 ? 'text-sm md:text-base' : 'text-lg';
-        cardEl.className = `vocab-card bg-white h-20 md:h-24 rounded-xl shadow-sm border-2 border-slate-200 flex items-center justify-center font-bold text-gray-700 cursor-pointer transition transform hover:-translate-y-1 hover:shadow-md select-none ${textClass} text-center px-2`;
+        // Make text slightly smaller for grid-cols-5
+        const textSize = PAIRS_PER_GAME === 10 ? 'text-sm md:text-base' : 'text-lg';
+        cardEl.className = `vocab-card bg-white h-20 md:h-24 rounded-xl shadow-sm border-2 border-slate-200 flex items-center justify-center ${textSize} font-bold text-gray-700 cursor-pointer transition transform hover:-translate-y-1 hover:shadow-md select-none text-center px-2`;
         cardEl.dataset.id = card.id;
         cardEl.dataset.matchId = card.matchId;
         cardEl.dataset.type = card.type;
         cardEl.innerText = card.text;
         
         cardEl.addEventListener('click', flipCard);
-        allSlots[totalMatchedCards + i] = cardEl;
-    });
-    
-    // We want to keep matched cards at the end of the grid, so shuffle only the active cards part
-    // Actually, shuffle all slots so empty slots are randomly distributed (optional)
-    // For now, let's keep empty slots at the beginning
-    
-    allSlots.forEach(slot => {
-        if(slot) board.appendChild(slot);
+        board.appendChild(cardEl);
     });
 }
 
@@ -527,13 +441,9 @@ function disableCards() {
     firstCard.classList.remove('bg-blue-100', 'border-blue-400', 'text-blue-800');
     secondCard.classList.remove('bg-blue-100', 'border-blue-400', 'text-blue-800');
     
-    firstCard.classList.add('matched', 'bg-green-100', 'border-green-400', 'text-green-700', 'opacity-70', 'scale-95');
-    secondCard.classList.add('matched', 'bg-green-100', 'border-green-400', 'text-green-700', 'opacity-70', 'scale-95');
+    firstCard.classList.add('matched', 'bg-green-100', 'border-green-400', 'text-green-700', 'opacity-0', 'pointer-events-none');
+    secondCard.classList.add('matched', 'bg-green-100', 'border-green-400', 'text-green-700', 'opacity-0', 'pointer-events-none');
     
-    // Mark as matched for L2 reshuffle logic
-    const wordRef1 = vocabCards.find(c => c.id == firstCard.dataset.id).wordRef;
-    if (wordRef1) wordRef1.matched = true;
-
     matchedPairs++;
     document.getElementById('game-progress').innerText = `${matchedPairs} / ${PAIRS_PER_GAME}`;
     
@@ -557,102 +467,145 @@ function unflipCards() {
         firstCard.classList.remove('bg-red-100', 'border-red-400', 'text-red-800');
         secondCard.classList.remove('bg-red-100', 'border-red-400', 'text-red-800');
         
-        // Level 2 Reshuffle Logic
         if (currentVocabLevel === 2) {
-            reshuffleLevel2();
+            handleLevel2Shuffle();
+        } else {
+            resetBoard();
         }
-        
-        resetBoard();
     }, 800);
 }
 
-function reshuffleLevel2() {
-    // Replace the unmatched pair with a new one if available
-    const wordRef1 = vocabCards.find(c => c.id == firstCard.dataset.id).wordRef;
-    const matchId = firstCard.dataset.matchId;
+function handleLevel2Shuffle() {
+    const toast = document.getElementById('vocab-toast');
+    toast.classList.remove('hidden');
     
-    // Remove the failed pair from active pairs
-    activeL2Pairs = activeL2Pairs.filter(w => w !== wordRef1);
+    setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 2000);
+
+    // Find all unmatched words currently on board
+    let unmatchedIds = new Set();
+    document.querySelectorAll('.vocab-card:not(.matched)').forEach(card => {
+        unmatchedIds.add(card.dataset.matchId);
+    });
+
+    // Replace 1 pair with a new random one from dictionary that isn't already on board or matched
+    let allDictWords = vocabDictionary[2];
+    let matchedIds = new Set(Array.from(document.querySelectorAll('.vocab-card.matched')).map(c => c.dataset.matchId));
     
-    // If we have backup words, add a new one, otherwise keep the old one
-    if (availableL2Dict.length > 0) {
-        const newWord = availableL2Dict.pop();
-        activeL2Pairs.push(newWord);
-        // Put the failed word back into the available pool
-        availableL2Dict.push(wordRef1);
-        shuffleArray(availableL2Dict);
-    } else {
-        activeL2Pairs.push(wordRef1); // Keep it if no backups
+    let availableNewWords = allDictWords.filter(w => !unmatchedIds.has(w.en) && !matchedIds.has(w.en));
+    
+    let currentUnmatchedWords = allDictWords.filter(w => unmatchedIds.has(w.en));
+    
+    if (availableNewWords.length > 0 && currentUnmatchedWords.length > 0) {
+        // Remove one existing unmatched pair
+        let wordToRemove = currentUnmatchedWords[Math.floor(Math.random() * currentUnmatchedWords.length)];
+        currentUnmatchedWords = currentUnmatchedWords.filter(w => w.en !== wordToRemove.en);
+        
+        // Add one new pair
+        let wordToAdd = availableNewWords[Math.floor(Math.random() * availableNewWords.length)];
+        currentUnmatchedWords.push(wordToAdd);
     }
     
-    // Re-render board (matched cards will be ignored and we'll keep them on screen but in their old DOM positions)
-    // Wait, replacing DOM completely is easier, but we need to preserve matched cards visually.
-    // Let's just re-render everything
-    renderMatchingBoard();
-}
+    // Re-render only unmatched cards (keep empty slots for matched ones)
+    const board = document.getElementById('vocab-board');
+    
+    // Create new DOM elements for matched cards (using outerHTML drops event listeners)
+    let matchedCardsHTML = [];
+    let matchedNodes = [];
+    document.querySelectorAll('.vocab-card.matched').forEach(c => {
+        matchedNodes.push(c.cloneNode(true)); // cloneNode drops listeners, but they are pointer-events-none anyway
+    });
+    
+    let newCardsData = [];
+    currentUnmatchedWords.forEach(word => {
+        newCardsData.push({ id: word.en + '_zh', text: word.zh, type: 'zh', matchId: word.en });
+        newCardsData.push({ id: word.en + '_en', text: word.en, type: 'en', matchId: word.en });
+    });
+    
+    shuffleArray(newCardsData);
+    
+    // Clear board and append
+    board.innerHTML = '';
+    
+    // Put matched cards back
+    matchedNodes.forEach(node => {
+        board.appendChild(node);
+    });
+    
+    // Put new unmatched cards
+    newCardsData.forEach(card => {
+        const cardEl = document.createElement('div');
+        const textSize = PAIRS_PER_GAME === 10 ? 'text-sm md:text-base' : 'text-lg';
+        cardEl.className = `vocab-card bg-white h-20 md:h-24 rounded-xl shadow-sm border-2 border-slate-200 flex items-center justify-center ${textSize} font-bold text-gray-700 cursor-pointer transition transform hover:-translate-y-1 hover:shadow-md select-none text-center px-2`;
+        cardEl.dataset.id = card.id;
+        cardEl.dataset.matchId = card.matchId;
+        cardEl.dataset.type = card.type;
+        cardEl.innerText = card.text;
+        cardEl.addEventListener('click', flipCard);
+        board.appendChild(cardEl);
+    });
+    
+    // Shuffle DOM elements to mix matched (empty spaces) and unmatched
+    let allNodes = Array.from(board.children);
+    shuffleArray(allNodes);
+    board.innerHTML = '';
+    allNodes.forEach(node => board.appendChild(node));
 
-function resetBoard() {
-    [firstCard, secondCard, lockBoard] = [null, null, false];
+    resetBoard();
 }
-
+    
 // --- Level 3 Spelling Logic ---
-
-function nextSpellingWord() {
-    if (spellingQueue.length === 0) {
+function loadNextSpellingWord() {
+    if (currentSpellIndex >= PAIRS_PER_GAME) {
         gameOver();
         return;
     }
     
-    currentSpellingWord = spellingQueue.shift();
-    document.getElementById('spell-zh').innerText = currentSpellingWord.zh;
+    const wordObj = spellingWords[currentSpellIndex];
+    document.getElementById('spell-zh-word').innerText = wordObj.zh;
     document.getElementById('spell-input').value = '';
     document.getElementById('spell-input').focus();
-    
-    const feedback = document.getElementById('spell-feedback');
-    feedback.innerText = '';
-    feedback.className = 'mt-6 text-xl font-bold h-8 transition-opacity opacity-0';
+    document.getElementById('spell-feedback').classList.add('hidden');
 }
 
 function checkSpelling() {
-    if (currentVocabLevel !== 3) return;
+    const inputEl = document.getElementById('spell-input');
+    const userSpelling = inputEl.value.trim().toLowerCase();
     
-    const input = document.getElementById('spell-input').value.trim().toLowerCase();
-    const correct = currentSpellingWord.en.toLowerCase();
+    if (!userSpelling) return;
+    
+    const currentWord = spellingWords[currentSpellIndex];
+    const correctSpelling = currentWord.en.toLowerCase();
+    
     const feedback = document.getElementById('spell-feedback');
+    feedback.classList.remove('hidden');
     
-    if (input === correct) {
-        feedback.innerText = "✅ 拼写正确！";
-        feedback.className = "mt-6 text-xl font-bold h-8 transition-opacity opacity-100 text-green-600";
-        matchedPairs++;
-        document.getElementById('game-progress').innerText = `${matchedPairs} / ${PAIRS_PER_GAME}`;
+    if (userSpelling === correctSpelling) {
+        feedback.innerHTML = "✅ 拼写正确！";
+        feedback.className = "mt-6 font-bold text-xl px-6 py-4 rounded-xl text-center w-full max-w-md bg-green-100 text-green-700 border border-green-200";
+        spellScore += 10;
+        
+        // Animate score update
+        const scoreEl = document.getElementById('spell-score');
+        scoreEl.innerText = spellScore;
+        scoreEl.classList.add('scale-125', 'text-green-500');
+        setTimeout(() => scoreEl.classList.remove('scale-125', 'text-green-500'), 300);
         
         setTimeout(() => {
-            nextSpellingWord();
+            currentSpellIndex++;
+            loadNextSpellingWord();
         }, 1000);
-    } else {
-        feedback.innerText = "❌ 拼写错误，请再试一次";
-        feedback.className = "mt-6 text-xl font-bold h-8 transition-opacity opacity-100 text-red-600";
         
-        // Shake animation
-        const inputEl = document.getElementById('spell-input');
-        inputEl.classList.add('translate-x-2');
-        setTimeout(() => inputEl.classList.replace('translate-x-2', '-translate-x-2'), 100);
-        setTimeout(() => inputEl.classList.replace('-translate-x-2', 'translate-x-2'), 200);
-        setTimeout(() => inputEl.classList.remove('translate-x-2'), 300);
+    } else {
+        feedback.innerHTML = `❌ 拼写错误。<br><span class="text-lg font-normal mt-2 block">正确拼写是：<strong>${currentWord.en}</strong></span>`;
+        feedback.className = "mt-6 font-bold text-xl px-6 py-4 rounded-xl text-center w-full max-w-md bg-red-100 text-red-700 border border-red-200";
+        
+        setTimeout(() => {
+            currentSpellIndex++;
+            loadNextSpellingWord();
+        }, 3000);
     }
-}
-
-function skipSpelling() {
-    const feedback = document.getElementById('spell-feedback');
-    feedback.innerText = `💡 正确拼写是: ${currentSpellingWord.en}`;
-    feedback.className = "mt-6 text-xl font-bold h-8 transition-opacity opacity-100 text-amber-600";
-    
-    // Push it back to queue so they have to try again later
-    spellingQueue.push(currentSpellingWord);
-    
-    setTimeout(() => {
-        nextSpellingWord();
-    }, 2500);
 }
 
 document.getElementById('spell-input').addEventListener('keypress', function(e) {
@@ -661,17 +614,30 @@ document.getElementById('spell-input').addEventListener('keypress', function(e) 
     }
 });
 
-// --- Common Game Logic ---
+function resetBoard() {
+    [firstCard, secondCard, lockBoard] = [null, null, false];
+}
+
 function gameOver() {
     clearInterval(gameTimer);
     setTimeout(() => {
         document.getElementById('vocab-board').classList.add('hidden');
+        document.getElementById('spelling-board').classList.add('hidden');
+        document.getElementById('spelling-board').classList.remove('flex');
+        
         const overlay = document.getElementById('game-overlay');
         overlay.classList.remove('hidden');
         overlay.classList.add('flex');
         
-        const levelNames = { 1: "「级别 1」", 2: "「级别 2」", 3: "「级别 3」" };
+        const levelNames = { 1: "「级别 1 (基础配对)」", 2: "「级别 2 (动态洗牌)」", 3: "「级别 3 (拼写挑战)」" };
         document.getElementById('final-level').innerText = levelNames[currentVocabLevel];
         document.getElementById('final-time').innerText = gameSeconds;
+        
+        // Optionally show spell score
+        if (currentVocabLevel === 3) {
+            document.getElementById('final-time').parentElement.innerHTML = `你用时 <span id="final-time" class="font-bold text-blue-600">${gameSeconds}</span> 秒完成了 <span id="final-level" class="font-bold">${levelNames[3]}</span>。<br>得分：<span class="text-2xl text-rose-600 font-bold mt-2 inline-block">${spellScore}</span> / ${PAIRS_PER_GAME * 10}`;
+        } else {
+            document.getElementById('final-time').parentElement.innerHTML = `你用时 <span id="final-time" class="font-bold text-blue-600">${gameSeconds}</span> 秒完成了 <span id="final-level" class="font-bold">${levelNames[currentVocabLevel]}</span> 的词汇匹配。`;
+        }
     }, 500);
 }
